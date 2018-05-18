@@ -843,6 +843,28 @@ def test_user_resets_user_hotp_error(mocker,
             bad_secret, test_journo['id'], error_message))
 
 
+def test_admin_resets_user_totp(journalist_app, test_admin, test_journo):
+    old_secret = test_journo['otp_secret']
+
+    with journalist_app.test_client() as app:
+        _login_user(app, test_admin['username'], test_admin['password'],
+                    test_admin['otp_secret'])
+
+        with InstrumentedApp(journalist_app) as ins:
+            resp = app.post(
+                '/admin/reset-2fa-totp',
+                data=dict(uid=test_journo['id']))
+            ins.assert_redirects(
+                resp,
+                '/admin/2fa?uid={}'.format(test_journo['id']))
+
+    with journalist_app.app_context():
+        user = Journalist.query.get(test_journo['id'])
+    new_secret = user.otp_secret
+
+    assert new_secret != old_secret
+
+
 class TestJournalistApp(TestCase):
 
     # A method required by flask_testing.TestCase
@@ -879,21 +901,6 @@ class TestJournalistApp(TestCase):
 
     def _login_user(self):
         self._ctx.g.user = self.user
-
-    def test_admin_resets_user_totp(self):
-        self._login_admin()
-        old_totp = self.user.totp
-
-        resp = self.client.post(
-            url_for('admin.reset_two_factor_totp'),
-            data=dict(uid=self.user.id))
-        new_totp = self.user.totp
-
-        self.assertNotEqual(old_totp.secret, new_totp.secret)
-
-        self.assertRedirects(
-            resp,
-            url_for('admin.new_user_two_factor', uid=self.user.id))
 
     def test_user_resets_totp(self):
         self._login_user()
