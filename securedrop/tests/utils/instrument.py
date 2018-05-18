@@ -40,9 +40,6 @@ class InstrumentedApp:
         return self
 
     def __exit__(self, *nargs):
-        if getattr(self, 'app', None) is not None:
-            del self.app
-
         del self.templates[:]
         del self.flashed_messages[:]
 
